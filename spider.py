@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 # Date    : 2017-09-29 10:33:20
@@ -29,7 +28,6 @@ class ZhiLianSpider(object):
         soup = BeautifulSoup(r.text, 'html.parser')
         self._setNextSearchURL(soup)
         return (el.attrs['href'] for el in soup.select('.zwmc a[href^="http://jobs.zhaopin.com/"]'))
-
 
 
 if __name__ == '__main__':
