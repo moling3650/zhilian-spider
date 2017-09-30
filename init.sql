@@ -12,6 +12,7 @@ DROP TABLE IF EXISTS jobs;
 
 CREATE TABLE jobs (
     id char(32) not null,
+    关键词 varchar(255) default null,
     职位名称 varchar(255) default null,
     职位链接 varchar(255) default null,
     公司名称 varchar(255) default null,
@@ -25,6 +26,7 @@ CREATE TABLE jobs (
     招聘人数 varchar(255) default null,
     职位类别 varchar(255) default null,
     职位描述 text,
+    公司介绍 text,
     详细工作地点 varchar(255) default null,
     公司规模 varchar(255) default null,
     公司性质 varchar(255) default null,

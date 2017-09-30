@@ -40,22 +40,24 @@ class ZhiLianSpider(object):
         try: 
             r = self.session.get(url, timeout=10)
         except:
-            print('请求超时: %s' % url)
+            print('请求超时！')
             return None
 
         data = {}
         soup = BeautifulSoup(r.text, 'html.parser')
         data['id'] = re.compile("http.+/|\.htm.*").sub('', url)
+        data['关键词'] = self.keyword
         data['职位链接'] = url
         data['职位名称'] = soup.select_one('.fl > h1').text.strip()
         data['公司名称'] = soup.select_one('.fl > h2 > a').text.strip()
         data['公司福利'] = '/'.join(el.text.strip() for el in soup.select('.welfare-tab-box > span'))
-        tab = soup.select_one('.tab-inner-cont')
-        data['职位描述'] =  '\n'.join(p.text.strip() for p in tab.find_all('p'))
-        data['详细工作地点'] = tab.find('h2').contents[0].strip()
         fields = (el.text.strip().replace('：', '') for el in soup.select('.terminal-ul li > span'))
         values = (el.text.strip() for el in soup.select('.terminal-ul li > strong'))
         data.update(dict(zip(fields, values)))
+        tab = soup.select_one('.tab-inner-cont')
+        data['职位描述'] =  '\n'.join(p.text.strip() for p in tab.find_all('p'))
+        data['公司介绍'] =  '\n'.join(el.text.strip() for el in tab.find_next_sibling().find_all('p'))
+        data['详细工作地点'] = tab.find('h2').contents[0].strip() if tab.find('h2') else data['公司地址']
         return data
 
 
@@ -75,9 +77,9 @@ class ZhiLianSpider(object):
                 sql = 'INSERT INTO `jobs` (%s) VALUES (%s)' % ( ','.join('`%s`' % k for k in data.keys()), ','.join(['%s'] * len(data)))
                 cursor.execute(sql, tuple(data.values()))
             connection.commit()
-            print('储存成功: %s' % data['职位链接'])
+            print('OK')
         except:
-            print('储存失败: %s' % data['职位链接'])
+            print('储存失败！')
         finally:
             connection.close()
 
@@ -86,7 +88,8 @@ class ZhiLianSpider(object):
         while self.search_URL:
             print('现在开始爬取列表页: %s' % self.search_URL)
             for url in self._getJobURLs(): 
-                time.sleep(random.randint(1, 5))
+                print('现在开始爬取职位: %s' % url, end=' ==> ')
+                time.sleep(random.randint(1, 3))
                 data = self._getDataByURL(url)
                 self._saveToDatabase(data)
 
