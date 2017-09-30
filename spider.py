@@ -5,6 +5,7 @@
 import re
 import time
 import random
+import pymysql
 import requests
 from bs4 import BeautifulSoup
 
@@ -25,42 +26,71 @@ class ZhiLianSpider(object):
 
 
     def _getJobURLs(self):
-        r = self.session.get(self.search_URL, timeout=10)
+        try:
+            r = self.session.get(self.search_URL, timeout=10)
+        except:
+            print('爬取列表页失败: %s' % self.search_URL)
+            return []
         soup = BeautifulSoup(r.text, 'html.parser')
         self._setNextSearchURL(soup)
         return (el.attrs['href'] for el in soup.select('.zwmc a[href^="http://jobs.zhaopin.com/"]'))
 
+
     def _getDataByURL(self, url):
-        data = {}
         try: 
             r = self.session.get(url, timeout=10)
-            soup = BeautifulSoup(r.text, 'html.parser')
-            data['id'] = re.compile("http.+/|\.htm.*").sub('', url)
-            data['职位链接'] = url
-            data['职位名称'] = soup.select_one('.fl > h1').text.strip()
-            data['公司名称'] = soup.select_one('.fl > h2 > a').text.strip()
-            data['公司福利'] = '/'.join(el.text.strip() for el in soup.select('.welfare-tab-box > span'))
-            tab = soup.select_one('.tab-inner-cont')
-            data['职位描述'] =  '\n'.join(p.text.strip() for p in tab.find_all('p'))
-            data['详细工作地点'] = tab.find('h2').contents[0].strip()
-            fields = (el.text.strip().replace('：', '') for el in soup.select('.terminal-ul li > span'))
-            values = (el.text.strip() for el in soup.select('.terminal-ul li > strong'))
-            data.update(dict(zip(fields, values)))
-        except e:
-            print('timeout: %s' % url)
-            
+        except:
+            print('请求超时: %s' % url)
+            return None
+
+        data = {}
+        soup = BeautifulSoup(r.text, 'html.parser')
+        data['id'] = re.compile("http.+/|\.htm.*").sub('', url)
+        data['职位链接'] = url
+        data['职位名称'] = soup.select_one('.fl > h1').text.strip()
+        data['公司名称'] = soup.select_one('.fl > h2 > a').text.strip()
+        data['公司福利'] = '/'.join(el.text.strip() for el in soup.select('.welfare-tab-box > span'))
+        tab = soup.select_one('.tab-inner-cont')
+        data['职位描述'] =  '\n'.join(p.text.strip() for p in tab.find_all('p'))
+        data['详细工作地点'] = tab.find('h2').contents[0].strip()
+        fields = (el.text.strip().replace('：', '') for el in soup.select('.terminal-ul li > span'))
+        values = (el.text.strip() for el in soup.select('.terminal-ul li > strong'))
+        data.update(dict(zip(fields, values)))
         return data
 
 
-    def main(self):
-        urls = self._getJobURLs()
-        for url in urls: 
-            time.sleep(random.randint(3, 5))
-            data = self._getDataByURL(url)
-            if data:
-                print(data['职位描述'])
+    def _saveToDatabase(self, data):
+        if not data:
+            return
+
+        connection = pymysql.connect(host='localhost',
+                                     user='zl',
+                                     password='zl-data',
+                                     db='zhilian',
+                                     charset='utf8')
+        try:
+            with connection.cursor() as cursor:
+                sql = 'DELETE FROM `jobs` WHERE `id` = %s'
+                cursor.execute(sql, (data['id'],))
+                sql = 'INSERT INTO `jobs` (%s) VALUES (%s)' % ( ','.join('`%s`' % k for k in data.keys()), ','.join(['%s'] * len(data)))
+                cursor.execute(sql, tuple(data.values()))
+            connection.commit()
+            print('储存成功: %s' % data['职位链接'])
+        except:
+            print('储存失败: %s' % data['职位链接'])
+        finally:
+            connection.close()
+
+
+    def crawl(self):
+        while self.search_URL:
+            print('现在开始爬取列表页: %s' % self.search_URL)
+            for url in self._getJobURLs(): 
+                time.sleep(random.randint(1, 5))
+                data = self._getDataByURL(url)
+                self._saveToDatabase(data)
 
 
 if __name__ == '__main__':
     spider = ZhiLianSpider('前端', job_location='深圳')
-    spider.main()
+    spider.crawl()
