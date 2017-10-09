@@ -55,9 +55,12 @@ class ZhiLianSpider(object):
         values = (el.text.strip() for el in soup.select('.terminal-ul li > strong'))
         data.update(dict(zip(fields, values)))
         tab = soup.select_one('.tab-inner-cont')
-        data['职位描述'] =  '\n'.join(p.text.strip() for p in tab.find_all('p'))
-        data['公司介绍'] =  '\n'.join(el.text.strip() for el in tab.find_next_sibling().find_all('p'))
+        data['职位描述'] =  '\n'.join(p.text.strip() for p in tab.find_all('p')) if tab else '无'
         data['详细工作地点'] = tab.find('h2').contents[0].strip() if tab.find('h2') else data['公司地址']
+        tab = tab.find_next_sibling()
+        data['公司介绍'] =  '\n'.join(p.text.strip() for p in tab.find_all('p')) if tab else '无'
+        match = re.search('(\d+)-(\d+)', data['职位月薪'])
+        data['最低月薪'], data['最高月薪'] = map(int, match.groups()) if match else (0, 0)
         return data
 
 
@@ -87,9 +90,10 @@ class ZhiLianSpider(object):
     def crawl(self):
         while self.search_URL:
             print('现在开始爬取列表页: %s' % self.search_URL)
+            time.sleep(3)
             for url in self._getJobURLs(): 
                 print('现在开始爬取职位: %s' % url, end=' ==> ')
-                time.sleep(random.randint(1, 3))
+                time.sleep(random.randint(1, 2))
                 data = self._getDataByURL(url)
                 self._saveToDatabase(data)
 

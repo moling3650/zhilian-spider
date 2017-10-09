@@ -18,6 +18,8 @@ CREATE TABLE jobs (
     公司名称 varchar(255) default null,
     公司福利 varchar(255) default null,
     职位月薪 varchar(255) default null,
+    最低月薪 int default 0,
+    最高月薪 int default 0,
     工作地点 varchar(255) default null,
     发布日期 varchar(255) default null,
     工作性质 varchar(255) default null,
